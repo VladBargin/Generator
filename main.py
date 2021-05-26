@@ -11,22 +11,78 @@ def comb(a, b, c = (255, 255, 255)):
     new_img.paste(b, (0, a.size[1]))
     return new_img
 
+def text_wrap(text, font, max_width):
+        """Wrap text base on specified width. 
+        This is to enable text of width more than the image width to be display
+        nicely.
+        @params:
+            text: str
+                text to wrap
+            font: obj
+                font of the text
+            max_width: int
+                width to split the text with
+        @return
+            lines: list[str]
+                list of sub-strings
+        """
+        lines = []
+        
+        # If the text width is smaller than the image width, then no need to split
+        # just add it to the line list and return
+        if font.getsize(text)[0]  <= max_width:
+            lines.append(text)
+        else:
+            #split the line by spaces to get words
+            words = text.split(' ')
+            i = 0
+            # append every word to a line while its width is shorter than the image width
+            while i < len(words):
+                line = ''
+                while i < len(words) and font.getsize(line + words[i])[0] <= max_width:
+                    line = line + words[i]+ " "
+                    i += 1
+                if not line:
+                    line = words[i]
+                    i += 1
+                lines.append(line)
+        return lines
+
+def txt_to_img(text, font, width):
+    lines = []
+    for line in text:
+        for x in text_wrap(line, font, width):
+            lines.append(x)
+    line_height = font.getsize('hg')[1]
+    
+    img = Image.new('RGB', (width, line_height * len(lines)), (255, 255, 255))
+    draw = ImageDraw.Draw(img)
+    y = 0
+    for line in lines:
+        draw.text((0, y),line,(0,0,0), font)
+        y = y + line_height
+    
+    return img
+
 # Create header image
 def gen_header():     
-    global header
-    header = Image.new('RGB', (10, 10), (255, 255, 255))
+    global header, txt_font
+    font = ImageFont.truetype("arial.ttf", 50)
+    with open('header.txt') as f:
+        header = txt_to_img(f.readlines(), txt_font, txt_width)
 
 # Create footer image
 def gen_footer():
-    global footer
-    footer = Image.new('RGB', (10, 10), (255, 255, 255))
+    global footer, txt_font
+    with open('footer.txt') as f:
+        footer = txt_to_img(f.readlines(), txt_font, txt_width)
     
 def fill(img, x, y, w, c = "#000000"):
     img.rectangle([(x, y), (x + w - 1), (y + w - 1)], fill=c)
     
 # Creates and returns a picture for the problem
 def gen_img(prob):
-    img = Image.new('RGB', (m*cell_w + 2*cell_b, n*cell_w + 2*cell_b + 100), (255, 255, 255))
+    img = Image.new('RGB', (m*cell_w + 2*cell_b, n*cell_w + 2*cell_b), (255, 255, 255))
     img1 = ImageDraw.Draw(img)
     for i in range(n):
         for j in range(m):
@@ -39,10 +95,9 @@ def gen_img(prob):
 
     ey = n*cell_w + 2*cell_b
     # font = ImageFont.truetype(<font-file>, <font-size>)
-    font = ImageFont.truetype("arial.ttf", 50)
     # draw.text((x, y),"Sample Text",(r,g,b))
-    img1.text((0, ey),prob[1],(0,0,0), font=font)
-    return img
+    img1.text((0, ey),prob[1],(0,0,0), font=txt_font)
+    return comb(img, txt_to_img([prob[1]], txt_font, m*cell_w + 2*cell_b))
 
 # Returns the header, problem and footer images combined into one
 # `img` is the image for the problem
@@ -117,8 +172,6 @@ def test_generate(i):
         print(p[0], p[1], '->', p[2], p[3], ':', p[4] + 1)
     print()
 
-gen_header()
-gen_footer()
 
 path = '.'
 with open(".config") as f:
@@ -132,8 +185,15 @@ with open(".config") as f:
     reps = int(f.readline())
     path = f.readline().rstrip()
     cell_w, cell_b = map(int, f.readline().split())
-    text_font = f.readline()
+    text_font = f.readline().rstrip()
     font_size = int(f.readline())
+    txt_width = int(f.readline())
+
+print(text_font, font_size)
+txt_font = ImageFont.truetype(text_font, font_size)
+
+gen_header()
+gen_footer()
 
 gen_probs()
 print("Wanted", reps, "problems")
@@ -141,6 +201,5 @@ reps = len(probs)
 print("Got", reps, "problems")
 
 pcwd = os.getcwd()
-
 for _ in range(reps):
     generate(_)
