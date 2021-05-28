@@ -48,18 +48,18 @@ def text_wrap(text, font, max_width):
                 lines.append(line)
         return lines
 
-def txt_to_img(text, font, width):
+def txt_to_img(text, font, width, dx=0):
     lines = []
     for line in text:
-        for x in text_wrap(line, font, width):
+        for x in text_wrap(line, font, width - dx):
             lines.append(x)
     line_height = font.getsize('hg')[1]
     
-    img = Image.new('RGB', (width, line_height * len(lines)), (255, 255, 255))
+    img = Image.new('RGB', (width - dx, line_height * len(lines)), (255, 255, 255))
     draw = ImageDraw.Draw(img)
     y = 0
     for line in lines:
-        draw.text((0, y),line,(0,0,0), font)
+        draw.text((dx, y),line,(0,0,0), font)
         y = y + line_height
     
     return img
@@ -68,36 +68,51 @@ def txt_to_img(text, font, width):
 def gen_header():     
     global header, txt_font
     font = ImageFont.truetype("arial.ttf", 50)
-    with open('header.txt') as f:
+    with open('header.txt', encoding = 'utf-8') as f:
         header = txt_to_img(f.readlines(), txt_font, txt_width)
 
 # Create footer image
 def gen_footer():
     global footer, txt_font
-    with open('footer.txt') as f:
+    with open('footer.txt', encoding = 'utf-8') as f:
         footer = txt_to_img(f.readlines(), txt_font, txt_width)
     
 def fill(img, x, y, w, c = "#000000"):
     img.rectangle([(x, y), (x + w - 1), (y + w - 1)], fill=c)
-    
+
+def num_to_char(x):
+    return chr(1040 + x)
+
 # Creates and returns a picture for the problem
 def gen_img(prob):
-    img = Image.new('RGB', (m*cell_w + 2*cell_b, n*cell_w + 2*cell_b), (255, 255, 255))
+    img = Image.new('RGB', ((m + 1)*cell_w + 2*cell_b, (n + 1)*cell_w + 2*cell_b + 10), (255, 255, 255))
     img1 = ImageDraw.Draw(img)
+    
     for i in range(n):
         for j in range(m):
-            fill(img1, i*cell_w - cell_b, j*cell_w - cell_b, cell_w + cell_b * 2, "#222222")
+            fill(img1, (i + 1)*cell_w - cell_b, (j + 1)*cell_w - cell_b, cell_w + cell_b * 2, "#222222")
             if prob[0][i][j]:
                 col = "#888888"
             else:
                 col = "#ffffff"
-            fill(img1, i*cell_w + cell_b, j*cell_w + cell_b, cell_w - cell_b * 2, col)
+            fill(img1, (i + 1)*cell_w + cell_b, (j + 1)*cell_w + cell_b, cell_w - cell_b * 2, col)
 
-    ey = n*cell_w + 2*cell_b
+    for i in range(1, n + 1):
+        sx = (cell_w) // 2
+        sy = i * cell_w + (cell_w - txt_font.getsize(num_to_char(i - 1))[1]) // 2
+        img1.text((sx, sy),num_to_char(i - 1),(0,0,0), txt_font)
+
+    for j in range(1, m + 1):
+        sx = j * cell_w + (cell_w - txt_font.getsize(str(j))[0]) // 2
+        sy = cell_w//2
+        img1.text((sx, sy),str(j),(0,0,0), txt_font)
+        
+
+    ey = (n + 1)*cell_w + 2*cell_b
     # font = ImageFont.truetype(<font-file>, <font-size>)
     # draw.text((x, y),"Sample Text",(r,g,b))
-    img1.text((0, ey),prob[1],(0,0,0), font=txt_font)
-    return comb(img, txt_to_img([prob[1]], txt_font, m*cell_w + 2*cell_b))
+    # img1.text((cell_w, ey),,(0,0,0), font=txt_font)
+    return comb(img, txt_to_img([prob[1].replace('N', 'С').replace('S', 'Ю').replace('E', 'В').replace('W', 'З')], txt_font, m*cell_w + 2*cell_b, cell_w))
 
 # Returns the header, problem and footer images combined into one
 # `img` is the image for the problem
@@ -108,7 +123,9 @@ def combine_img(img):
 probs = []
 def gen_probs():
     global probs
-    os.system('./gen <.config> .out')
+    os.chdir('cpp')
+    os.system('gen.exe <../.config> ../.out')
+    os.chdir('..')
     
     with open('.out') as f:
         while True:
@@ -122,11 +139,13 @@ def gen_probs():
             path = f.readline().rstrip()
             for i in range(cnt_sol):
                 solution.append(list(map(int, f.readline().split())))
+                for j in range(len(solution)):
+                    solution[j][0] = num_to_char(solution[j][0])
+                    solution[j][2] = num_to_char(solution[j][2])
             probs.append((field, path, solution))
 
 def get_prob(i):
     return probs[i]
-
 
 # Writes the created image and the solution to the problem to disk.
 # If 'name' is empty, finds first unused number
@@ -174,7 +193,7 @@ def test_generate(i):
 
 
 path = '.'
-with open(".config") as f:
+with open(".config", encoding = 'utf-8') as f:
     n, m = map(int, f.readline().split())
     pathl = int(f.readline())
     mi_segl = int(f.readline())
